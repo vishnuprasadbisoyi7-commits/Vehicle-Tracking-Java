@@ -1,0 +1,5 @@
+package tech.csm.controller;
+
+public class VtsPacketToJsonController {
+
+}

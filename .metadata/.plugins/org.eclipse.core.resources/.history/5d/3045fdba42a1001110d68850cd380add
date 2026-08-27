@@ -1,0 +1,128 @@
+package tech.csm.serviceimpl;
+
+
+import java.io.OutputStream;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import tech.csm.bean.Response;
+import tech.csm.repository.VehicleRouteDataRepository;
+import tech.csm.service.VtsSimulatorService;
+
+
+@Service
+public class VtsSimulatorServiceImpl implements VtsSimulatorService {
+
+    private static final Logger logger = LoggerFactory.getLogger(VtsSimulatorServiceImpl.class);
+
+    @Value("${vts.server.host:minesdata.rajasthan.gov.in}")
+    private String serverHost;
+
+    @Value("${vts.server.port:7001}")
+    private int serverPort;
+
+    @Value("${vts.packet.interval.ms:5000}")
+    private long defaultInterval;
+
+    @Autowired
+    private VehicleRouteDataRepository routeRepository;
+
+    @Override
+    public Response startSimulation(VtsSimulatorRequestBean requestBean) {
+        Response response = new Response();
+        try {
+            List<VehicleRouteData> routePoints = routeRepository.findRouteByVehicleNo(requestBean.getVehicleNo());
+
+            if (routePoints == null || routePoints.isEmpty()) {
+                response.setStatus("Failed");
+                response.setMessage("No route data found in PostgreSQL for vehicle: " + requestBean.getVehicleNo());
+                return response;
+            }
+
+            long interval = requestBean.getIntervalMillis() != null ? requestBean.getIntervalMillis() : defaultInterval;
+
+            // Run simulation asynchronously so the API returns immediately
+            CompletableFuture.runAsync(() -> executeSocketTransmission(routePoints, requestBean.getVehicleNo(), requestBean.getImei(), interval));
+
+            response.setStatus("Success");
+            response.setMessage("Simulation started successfully for " + routePoints.size() + " waypoints.");
+        } catch (Exception e) {
+            logger.error("Error starting VTS simulation: {}", ExceptionUtils.getStackTrace(e));
+            response.setStatus("Failed");
+            response.setMessage("Error: " + e.getMessage());
+        }
+        return response;
+    }
+
+    private void executeSocketTransmission(List<VehicleRouteData> points, String vehicleNo, String targetImei, long interval) {
+        try (Socket socket = new Socket(serverHost, serverPort);
+             OutputStream out = socket.getOutputStream()) {
+
+            logger.info("Connected to VTS server {}:{}", serverHost, serverPort);
+
+            Double prevLat = null;
+            Double prevLon = null;
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HHmmss");
+
+            for (VehicleRouteData point : points) {
+                ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
+                String date = nowUtc.format(dateFormatter);
+                String timeVal = nowUtc.format(timeFormatter);
+
+                double lat = point.getLatitude();
+                double lon = point.getLongitude();
+                double speed = point.getSpeed() != null ? point.getSpeed() : 0.0;
+                String imei = (targetImei != null && !targetImei.isEmpty()) ? targetImei : point.getImei();
+
+                double heading = 0.0;
+                if (prevLat != null && prevLon != null) {
+                    heading = calculateBearing(prevLat, prevLon, lat, lon);
+                }
+
+                prevLat = lat;
+                prevLon = lon;
+
+                String packet = String.format(
+                    "$PVT,RA10,SW-V3.1,NR,1,L,%s,%s,1,%s,%s,%.6f,N,%.6f,E,%.1f,%.2f,24,239.653,1.04,0.8,airtel,1,0,0,4.1,0,C,31,404,10,96,426e,96,3652,24,96,3653,20,96,426f,20,96,6fd3,19,0,1,130,C*\r\n",
+                    imei, vehicleNo, date, timeVal, lat, lon, speed, heading
+                );
+
+                logger.info("Transmitting Packet: {}", packet.trim());
+                out.write(packet.getBytes(StandardCharsets.UTF_8));
+                out.flush();
+
+                Thread.sleep(interval);
+            }
+
+            logger.info("Simulation completed for vehicle {}", vehicleNo);
+
+        } catch (Exception e) {
+            logger.error("Socket communication error during simulation: {}", ExceptionUtils.getStackTrace(e));
+        }
+    }
+
+    private double calculateBearing(double lat1, double lon1, double lat2, double lon2) {
+        double rLat1 = Math.toRadians(lat1);
+        double rLat2 = Math.toRadians(lat2);
+        double diffLong = Math.toRadians(lon2 - lon1);
+
+        double x = Math.sin(diffLong) * Math.cos(rLat2);
+        double y = Math.cos(rLat1) * Math.sin(rLat2) - (Math.sin(rLat1) * Math.cos(rLat2) * Math.cos(diffLong));
+
+        double bearing = Math.toDegrees(Math.atan2(x, y));
+        return (bearing + 360.0) % 360.0;
+    }
+}

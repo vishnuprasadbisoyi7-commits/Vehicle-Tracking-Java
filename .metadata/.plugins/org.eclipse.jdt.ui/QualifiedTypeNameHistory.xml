@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<qualifiedTypeNameHistroy>
+    <fullyQualifiedTypeName name="org.apache.tomcat.util.ExceptionUtils"/>
+    <fullyQualifiedTypeName name="org.apache.el.util.ExceptionUtils"/>
+    <fullyQualifiedTypeName name="org.apache.commons.lang3.exception.ExceptionUtils"/>
+    <fullyQualifiedTypeName name="org.apache.catalina.connector.Response"/>
+    <fullyQualifiedTypeName name="tech.csm.service.VtsSimulatorService"/>
+    <fullyQualifiedTypeName name="tech.csm.repository.VehicleRouteDataRepository"/>
+    <fullyQualifiedTypeName name="tech.csm.bean.Response"/>
+    <fullyQualifiedTypeName name="tech.csm.bean.VtsSimulatorRequestBean"/>
+    <fullyQualifiedTypeName name="tech.csm.model.VehicleRouteData"/>
+    <fullyQualifiedTypeName name="org.springframework.kafka.test.EmbeddedKafkaBroker"/>
+</qualifiedTypeNameHistroy>

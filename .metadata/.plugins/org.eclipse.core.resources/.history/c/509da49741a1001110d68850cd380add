@@ -1,0 +1,10 @@
+package tech.csm.service;
+
+
+
+import com.project.rmaines.bean.Response;
+import com.project.rmaines.bean.VtsSimulatorRequestBean;
+
+public interface VtsSimulatorService {
+    Response startSimulation(VtsSimulatorRequestBean requestBean);
+}

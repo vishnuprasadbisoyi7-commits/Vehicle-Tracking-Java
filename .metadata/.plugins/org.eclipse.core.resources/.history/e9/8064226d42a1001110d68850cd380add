@@ -1,0 +1,5 @@
+package tech.csm.bean;
+
+public class Response {
+
+}

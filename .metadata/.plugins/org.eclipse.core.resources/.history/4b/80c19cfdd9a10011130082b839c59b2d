@@ -1,0 +1,5 @@
+package tech.csm.util;
+
+public class PacketParserUtil {
+
+}

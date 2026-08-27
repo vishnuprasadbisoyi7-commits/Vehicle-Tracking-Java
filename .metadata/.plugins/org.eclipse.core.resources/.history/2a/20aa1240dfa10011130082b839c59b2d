@@ -1,0 +1,61 @@
+package tech.csm.util;
+
+import tech.csm.bean.VtsPacketDto;
+
+public class VtsPacketParser {
+
+    public static VtsPacketDto parseRawPacket(String rawLine) {
+        if (rawLine == null || !rawLine.startsWith("$PVT")) {
+            return null;
+        }
+
+        // Strip start '$' and end '*'
+        String clean = rawLine.trim().replace("$", "").replace("*", "");
+        String[] parts = clean.split(",");
+
+        if (parts.length < 22) {
+            return null;
+        }
+
+        return VtsPacketDto.builder()
+                .header(parts[0])
+                .model(parts[1])
+                .firmwareVersion(parts[2])
+                .alertType(parts[3])
+                .packetStatus(parts[4])
+                .gpsFix(parts[5])
+                .imei(parts[6])
+                .vehicleNo(parts[7])
+                .date(parts[9])
+                .time(parts[10])
+                .latitude(parseDouble(parts[11]))
+                .latDirection(parts[12])
+                .longitude(parseDouble(parts[13]))
+                .lonDirection(parts[14])
+                .speed(parseDouble(parts[15]))
+                .heading(parseDouble(parts[16]))
+                .satellites(parseInt(parts[17]))
+                .altitude(parseDouble(parts[18]))
+                .pdop(parseDouble(parts[19]))
+                .hdop(parseDouble(parts[20]))
+                .operator(parts[21])
+                .rawPacket(rawLine.trim())
+                .build();
+    }
+
+    private static Double parseDouble(String val) {
+        try {
+            return Double.valueOf(val);
+        } catch (Exception e) {
+            return 0.0;
+        }
+    }
+
+    private static Integer parseInt(String val) {
+        try {
+            return Integer.valueOf(val);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+}

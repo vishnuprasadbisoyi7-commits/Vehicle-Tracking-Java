@@ -1,0 +1,5 @@
+package tech.csm.repository;
+
+public class VehicleTelemetryProcedureRepository {
+
+}

@@ -1,0 +1,33 @@
+package tech.csm.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+@Data
+@Entity
+@Table(name = "vehicle_route_data", schema = "public")
+public class VehicleRouteData {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "date_val")
+    private String dateVal;
+
+    @Column(name = "time_val")
+    private String timeVal;
+
+    @Column(name = "latitude", nullable = false)
+    private Double latitude;
+
+    @Column(name = "longitude", nullable = false)
+    private Double longitude;
+
+    @Column(name = "speed")
+    private Double speed;
+
+    @Column(name = "heading")
+    private Double heading;
+}
