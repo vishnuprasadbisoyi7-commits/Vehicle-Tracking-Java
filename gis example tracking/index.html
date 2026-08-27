@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VTS Live Tracking Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; width: 100vw; }
+    .vehicle-info {
+      position: absolute; top: 15px; right: 15px; z-index: 1000;
+      background: white; padding: 15px; border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-family: sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div class="vehicle-info" id="infoBox">
+    <h3>Vehicle: <span id="vehNo">RJ14AA7907</span></h3>
+    <p>Speed: <span id="speed">0</span> km/h</p>
+    <p>Heading: <span id="heading">0</span>°</p>
+    <p>Last Sync: <span id="time">--</span></p>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const VEHICLE_NO = "RJ14AA7907";
+    const API_BASE = "http://localhost:8082/vts/api/telemetry-view";
+
+    // 1. Initialize Map centered on Rajasthan
+    const map = L.map('map').setView([26.78277, 76.07350], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let vehicleMarker = null;
+    let routePolyline = L.polyline([], { color: '#007bff', weight: 4, opacity: 0.8 }).addTo(map);
+
+    // 2. Fetch Historical Trail
+    async function loadHistory() {
+      try {
+        const res = await fetch(`${API_BASE}/history?vehicleNo=${VEHICLE_NO}&limit=200`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+          const latLngs = data.map(pt => [pt.latitude, pt.longitude]);
+          routePolyline.setLatLngs(latLngs);
+
+          // Place initial marker at the last known position
+          const lastPoint = data[data.length - 1];
+          updateMarker(lastPoint);
+          map.panTo([lastPoint.latitude, lastPoint.longitude]);
+        }
+      } catch (err) {
+        console.error("Error fetching history:", err);
+      }
+    }
+
+    // 3. Update Vehicle Marker & Info Box
+    function updateMarker(data) {
+      const pos = [data.latitude, data.longitude];
+
+      if (!vehicleMarker) {
+        vehicleMarker = L.marker(pos).addTo(map);
+      } else {
+        vehicleMarker.setLatLng(pos);
+      }
+
+      vehicleMarker.bindPopup(`<b>${data.vehicleNo}</b><br>Speed: ${data.speed} km/h`).openPopup();
+
+      // Append point to polyline
+      routePolyline.addLatLng(pos);
+
+      // Update HUD
+      document.getElementById('speed').innerText = data.speed;
+      document.getElementById('heading').innerText = data.heading;
+      document.getElementById('time').innerText = data.packetTime;
+    }
+
+    // 4. Poll Live Position every 1 seconds
+    async function trackLive() {
+      try {
+        const res = await fetch(`${API_BASE}/latest?vehicleNo=${VEHICLE_NO}&_t=${Date.now()}`);
+        if (res.ok && res.status === 200) {
+          const latest = await res.json();
+          updateMarker(latest);
+        }
+      } catch (err) {
+        console.error("Error polling live position:", err);
+      }
+    }
+
+    loadHistory().then(() => {
+      setInterval(trackLive, 1000);
+    });
+  </script>
+</body>
+</html>
